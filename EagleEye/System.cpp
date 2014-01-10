@@ -31,24 +31,33 @@ void System::MainThread()
 	}
 
 	printf("Final world ptr: 0x%p\n", mainPtr);
+	printf("Trying to load initial snapshot...\n");
+	WorldFrame frame = GData::GetData(gClient, mainPtr);
 
-	printf("Extracting web interface...\n");
+	printf("Connecting to web server...\n");
 	webInterface = new Winter;
-	webInterface->ExtractData();
-	printf("Hosted at %s\n", webInterface->indexHtmlPath);
 
-	printf("Outputting data every second, press F1 to exit.\n");
-	
-	while(!GetAsyncKeyState(VK_F1)){
+	printf("Waiting for web interface to be ready...\n");
+	while(!webInterface->IsReady()){
+		Sleep(200);
+	}
+
+	printf("Uploading initial map snapshot...\n");
+	webInterface->UploadSnapshot(frame);
+
+	printf("======= Map is Ready =======\n%s\n============================\n", webInterface->GetUrl().c_str());
+
+	printf("Outputting data (and uploading), press F1 to exit.\n");
+
+	while(!GetAsyncKeyState(VK_F1) && webInterface->IsConnected()){
 		//Load data
-		WorldFrame frame = GData::GetData(gClient, mainPtr);
+		frame = GData::GetData(gClient, mainPtr);
 
 		printf("\r");
 		printf("Player-> x: %f y: %f z: %f dead: %u state: %u", frame.pPos.x, frame.pPos.y, frame.pPos.z, frame.player.isdead, frame.player.PlayerState);
 		Sleep(1000);
 	}
-	printf("\nCleaning up files... ");
-	webInterface->CleanupFiles();
+	printf("\nShutting down map... ");
+	delete webInterface;
 	printf("cleaned up!\n");
-
 }

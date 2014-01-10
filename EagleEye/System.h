@@ -15,4 +15,3 @@ public:
 	//The main thread for the program.. Process will exit when it returns
 	void MainThread();
 };
-

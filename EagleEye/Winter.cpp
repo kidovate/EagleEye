@@ -1,88 +1,117 @@
 #include "stdafx.h"
 #include "Winter.h"
-#include <vector>
-#include <string>
-#include <fstream>
+#include "easywsclient.h"
+#include <thread>         // std::thread
 #include "Tools.h"
-#include <tchar.h>
-#include <urlmon.h>
-#pragma comment(lib, "urlmon.lib")
+#include <sstream>
+#include "JSON.h"
+
+Winter* tmpWntr;
+void Winter::handle_message(const std::string & message)
+{
+	Winter* winter = tmpWntr;
+	if(starts_with(message, "newmapid")){
+		winter->mapId = message.substr(9);
+		printf("Server assigned map id %s\n", winter->mapId.c_str());// not sure why but this takes ages to print
+		fflush(stdout); //tried that too and it didnt work
+		winter->connectionAttemptDone = true;
+	}else if(message.compare("nomapid")){
+		printf("Server says we need a new map ID, requesting again...\n");
+		fflush(stdout);
+		winter->ws->send("reqmapid");
+	}
+}
+
+void Winter::SocketThread()
+{
+	printf("Socket thread start...\n");
+	Winter * winter = tmpWntr;
+	winter->connectionAttemptDone = false;
+	winter->isConnected = false;
+	//stall until connected
+	while(winter->ws->getReadyState() != WebSocket::OPEN && winter->ws->getReadyState() != WebSocket::CLOSED){
+		winter->ws->poll();
+		Sleep(200);
+	}
+	//winter->connectionAttemptDone = true;//wait until we get a map id
+	//getchar();
+	if(winter->ws->getReadyState() == WebSocket::OPEN){
+		winter->ws->send("reqmapid");
+		winter->isConnected = true; 
+	}else{
+		printf("Could not open web socket, web interface will not work!\n");
+		winter->isConnected = false;
+	}
+    while (winter->ws->getReadyState() == WebSocket::OPEN) {
+        winter->ws->poll();
+		tmpWntr = winter;
+        winter->ws->dispatch(handle_message);
+    }
+	//delete winter->ws;
+	winter->isConnected = false;
+	printf("Socket thread end...\n");
+}
 
 Winter::Winter(void)
 {
-	indexHtmlFilename = "1337h33x0r.html";
-	GeneratePaths();
+	//open websocket, set up map
+	printf("Opening websocket..\n");
+	ws = WebSocket::from_url("ws://54.201.208.171:3000/gameData/websocket");
+	tmpWntr = this;
+	std::thread first (SocketThread);
+	first.detach();
 }
-
 
 Winter::~Winter(void)
 {
+	//close websocket, tell server to delete map
+	ws->close(); // this will close the ws and then get it deleted in the thread
 }
 
-void Winter::GeneratePaths(){
-	unsigned int result = ::GetTempPathA(0, "");
-	if (result == 0) {
-		printf("Could not get temporary path\n");
+void Winter::UploadSnapshot(WorldFrame frame)
+{
+	if(!isConnected) {
+		printf("Couldn't upload snapshot: not connected.\n");
 		return;
 	}
-		//throw std::runtime_error("Could not get system temp path");
 
-	std::vector<char> tempPath(result);
+	//make the snapshot object
+	JSONObject root;
 
-	result = GetTempPathA(static_cast<unsigned int>(tempPath.size()), &tempPath[0]);
-	if ((result == 0) || (result > tempPath.size())){
-		printf("Could not get temporary path 2.\n");
-		return;
-	}
-	
-		//throw std::runtime_error("Could not get system temp path");
+	//make the local player
+	JSONObject lp;
+	lp[L"name"] = new JSONValue("Local Player");
+	lp[L"posx"] = new JSONValue(frame.pPos.x);
+	lp[L"posy"] = new JSONValue(frame.pPos.y);
+	lp[L"posz"] = new JSONValue(frame.pPos.z);
+	lp[L"lat"] = new JSONValue(game_to_lat(frame.pPos.y));
+	lp[L"lng"] = new JSONValue(game_to_lng(frame.pPos.x));
+	lp[L"isdead"] = new JSONValue(frame.player.isdead);
+	lp[L"playerState"] =  new JSONValue((double)frame.player.PlayerState);
+	root[L"localPlayer"] = new JSONValue(lp);
 
-	std::string path(tempPath.begin(), tempPath.begin() + static_cast<std::size_t>(result));
-	//printf("Temporary path: %s\n",  path.c_str());
+	//players array
+	JSONArray players;
+	//foreach etc
+	//add it
+	root[L"players"] = new JSONValue(players);
 
-	indexHtmlPath = new char[MAX_PATH];
-	sprintf_s(indexHtmlPath, MAX_PATH, "%s%s", path.c_str(), indexHtmlFilename);
-	//printf("Index HTML: %s\n", indexHtmlPath);
-
-	mapjsPath = new char[MAX_PATH]; //map.js
-	sprintf_s(mapjsPath, MAX_PATH, "%s%s", path.c_str(), "map.js");
-	//printf("Map JS: %s\n", mapjsPath);
-
-	playersJsonPath= new char[MAX_PATH]; //players.json
-	sprintf_s(playersJsonPath, MAX_PATH, "%s%s", path.c_str(), "players.json");
-	//printf("Players JSON path: %s\n", playersJsonPath);
-	printf("Web interface paths generated.\n");
+	//stringify
+	JSONValue f(root);
+	std::string json = ws2s(f.Stringify());
+	//printf("JSON: %s\n", json);
+	//upload to server
+	ws->send(std::string("setsnapshot:")+json);
 }
 
-bool Winter::ExtractData() {
-	CleanupFiles();
-	std::ofstream locations_js_file(playersJsonPath);
-	if (!locations_js_file.is_open()) {
-		printf("Could not write to system...\n");
-		return false;
-	}
-
-	printf("Downloading map data...\n");
-	std::string uBase(baseUrl);
-	std::wstring uBaseW(uBase.begin(), uBase.end());
-	uBaseW.append(L"index.html");
-	std::wstring indexHtmlPathW(CharToWChar(indexHtmlPath));
-	HRESULT hr = URLDownloadToFile(NULL, uBaseW.c_str(), indexHtmlPathW.c_str(), 0, NULL);
-	//printf("Downloaded index.html from %ls to\n %ls...\n", uBaseW.c_str(), indexHtmlPathW.c_str());
-
-	uBaseW = std::wstring(uBase.begin(), uBase.end());
-	uBaseW.append(L"map.js");
-	wchar_t* indexUrlW = CharToWChar(mapjsPath);
-	hr = URLDownloadToFile(NULL, uBaseW.c_str(), indexUrlW, 0, NULL);
-	printf("Downloaded map.js...\n");
-
-	locations_js_file << "[]"; //blank to start
-	locations_js_file.close();
-	return true;
+bool Winter::IsReady(){
+	return connectionAttemptDone;
 }
 
-void Winter::CleanupFiles(){
-	remove(mapjsPath);
-	remove(indexHtmlPath);
-	remove(playersJsonPath);
+bool Winter::IsConnected(){
+	return isConnected;
+}
+
+std::string Winter::GetUrl(){
+	return std::string("http://54.201.208.171:3000/map/")+mapId;
 }

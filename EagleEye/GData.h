@@ -4,24 +4,22 @@
 
 //Game data structs, hopefully not detected
 
-
-
 class World //base + 1860
 {
 public:
 	char pad[1860];
-	uintptr_t objTPtr; //0x0744 
+	uintptr_t objTPtr; //0x0744
 	char pad1[2112];
 	uintptr_t nearT; //0x0F88 CPlayer**
-	__int32 nearTSize; //0x0F8C 
+	__int32 nearTSize; //0x0F8C
 	char pad2[160];
 	uintptr_t farT; //0x1030 CPlayer**
-	__int32 farTSize; //0x1034 
+	__int32 farTSize; //0x1034
 	char pad3[496];
 	uintptr_t unknownT; //0x1228 CPlayer**
-	__int32 unknownTSize; //0x122C 
+	__int32 unknownTSize; //0x122C
 	char pad4[864];
-    uintptr_t localEntity; //0x1590 CEntity*
+	uintptr_t localEntity; //0x1590 CEntity*
 };
 
 class Entity{ //Pad 0x004 before
@@ -45,8 +43,8 @@ public:
 class Position{ //0x0028 pad before
 public:
 	FLOAT x;
-	FLOAT y;
 	FLOAT z;
+	FLOAT y;
 };
 
 //All data recorded for a moment
@@ -63,7 +61,7 @@ class GData
 public:
 	static WorldFrame GetData(Client * client, uintptr_t base){
 		WorldFrame frame;
-		
+
 		//Resolve the world
 		World world = client->Read<World>(base);
 		frame.world = world;
@@ -86,4 +84,3 @@ public:
 		return frame;
 	}
 };
-

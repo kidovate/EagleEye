@@ -1,21 +1,22 @@
 #pragma once
-#include <string>
+#include "easywsclient.h"
+#include "GData.h"
 
-namespace{
-	static const char* baseUrl = "http://54.201.208.171:8000/";
-}
+using easywsclient::WebSocket;
 class Winter
 {
 private:
-	char*indexHtmlFilename;
-	void GeneratePaths();
+	std::string mapId;
+	static void SocketThread();
+	static void handle_message(const std::string & message);
+	bool connectionAttemptDone;
+	bool isConnected; //thread safe
 public:
+	WebSocket::pointer ws;
 	Winter(void);
 	~Winter(void);
-	bool ExtractData();
-	void CleanupFiles();
-	char* indexHtmlPath;
-	char* mapjsPath;
-	char* playersJsonPath;
+	void UploadSnapshot(WorldFrame frame);
+	bool IsReady();
+	bool IsConnected();
+	std::string GetUrl();
 };
-

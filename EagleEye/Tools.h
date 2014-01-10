@@ -1,8 +1,9 @@
 #pragma once
-#define _CRT_SECURE_NO_WARNINGS
 #include "stdafx.h"
 #include <TlHelp32.h>
 #include <string>
+#include <locale>
+#include <codecvt>
 
 namespace
 {
@@ -45,8 +46,8 @@ namespace
 	{
 		std::string enc("");
 		for (unsigned int i(0); i < str.length(); i++) // iterates through the string to encrypt
-				enc += str[i] ^ key; // ^ - XOR operator in C++
-			return enc;
+			enc += str[i] ^ key; // ^ - XOR operator in C++
+		return enc;
 	}
 	std::string XORDecryption(std::string str, int key)
 	{
@@ -56,18 +57,45 @@ namespace
 		return dec;
 	}
 	std::string ReplaceString(std::string subject, const std::string& search,
-                          const std::string& replace) {
-		size_t pos = 0;
-		while ((pos = subject.find(search, pos)) != std::string::npos) {
-			 subject.replace(pos, search.length(), replace);
-			 pos += replace.length();
-		}
-		return subject;
+		const std::string& replace) {
+			size_t pos = 0;
+			while ((pos = subject.find(search, pos)) != std::string::npos) {
+				subject.replace(pos, search.length(), replace);
+				pos += replace.length();
+			}
+			return subject;
 	}
 	wchar_t* CharToWChar(char* input){
 		size_t wn = mbsrtowcs(NULL, ((const char**)&input), 0, NULL);
 		wchar_t*buff = new wchar_t[wn+1]();
 		wn = mbsrtowcs(buff, ((const char**)&input), wn+1, NULL);
 		return buff;
+	}
+	bool starts_with(const std::string& s1, const std::string& s2) {
+		return s2.size() <= s1.size() && s1.compare(0, s2.size(), s2) == 0;
+	}
+
+	
+	float game_to_lng(float x) {
+		return (float)(0.00260491 + 0.000999703*x);
+	}
+	float game_to_lat(float y) {
+		return (float)(15.3478 - 0.000998826*y);
+	}
+
+	std::wstring s2ws(const std::string& str)
+	{
+		typedef std::codecvt_utf8<wchar_t> convert_typeX;
+		std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+		return converterX.from_bytes(str);
+	}
+
+	std::string ws2s(const std::wstring& wstr)
+	{
+		typedef std::codecvt_utf8<wchar_t> convert_typeX;
+		std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+		return converterX.to_bytes(wstr);
 	}
 }

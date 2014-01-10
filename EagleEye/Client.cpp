@@ -2,11 +2,9 @@
 #include "Client.h"
 #include "Tools.h"
 
-
 Client::Client(void)
 {
 }
-
 
 Client::~Client(void)
 {

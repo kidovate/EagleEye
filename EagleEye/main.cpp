@@ -1,6 +1,5 @@
 // EagleEye.cpp : Defines the entry point for the console application.
 //
-#define WIN32_LEAN_AND_MEAN
 #include "stdafx.h"
 #include "System.h"
 #include "Console.h"
@@ -21,7 +20,6 @@ void ShutDown(){
 	hasShutDown = true;
 	shutDown = true;
 	ForceUnloadDLL();
-	CloseHandle(ourHandle);
 }
 
 DWORD WINAPI MainThread(LPVOID lpParam){
@@ -62,4 +60,3 @@ BOOL APIENTRY DllMain(HINSTANCE hModule, DWORD ul_reason_for_call, LPVOID lpRese
 	}
 	return TRUE;
 }
-
